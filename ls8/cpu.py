@@ -1,7 +1,21 @@
 """CPU functionality."""
 
 import sys
+HLT = 0b00000001
+LDI = 0b10000010
+PRN = 0b01000111
+MUL = 0b10100010
+PUSH = 0b01000101
+POP = 0b01000110
+ADD = 0b10100000
+CALL = 0b01010000
+RET = 0b00010001
+CMP = 0b10100111
+JMP = 0b1010100
+JEQ = 0b1010101
+JNE = 0b1010110
 
+SP = 7
 class CPU:
     """Main CPU class."""
 
@@ -11,12 +25,9 @@ class CPU:
         self.pc = 0  #program counter
         self.running = False
         self.ram = [0]* 256
-        self.reg = [0] * 8
-        self.HLT = 0b00000001
-        self.LDI = 0b10000010
-        self.PRN = 0b01000111
-        self.MUL = 0b10100010
-        self.DIV = 0b10100011
+        self.reg = [0] * 8 #stack pointer at 8
+        #initial value of where the stack pointer 
+        self.reg[SP] = 0xf4
 
 
         #read the ram
@@ -31,41 +42,19 @@ class CPU:
         """Load a program into memory."""
 
         address = 0
-
-        # For now, we've just hardcoded a program:
-    #DAY 1 - uncomment
-        # program = [
-        #     # From print8.ls8
-        #     0b10000010, # LDI R0,8
-        #     0b00000000,
-        #     0b00001000,
-        #     0b01000111, # PRN R0
-        #     0b00000000,
-        #     0b00000001, # HLT
-        # ]
-
-
-        #program = [0] * 256
-        #load program
-        filename = sys.argv[1] #INDEX OUT OF RANGE
+        
+        filename = sys.argv[1]
         with open(filename) as f:
             for line in f:
                 line = line.split("#")[0].strip()
                 if line == "":
                     continue
                 else:
-                    self.ram[address] = int(line, 2)
+                    value = int(line, 2)
+                    self.ram[address] = value
                     address += 1
        
 
-        print(self.ram[:15])
-        #print(self.ram[2])
-        print(sys.argv)
-        #sys.exit(0)        
-
-        # for instruction in program:
-        #     self.ram[address] = instruction
-        #     address += 1
 
 
     def alu(self, op, reg_a, reg_b):
@@ -99,7 +88,12 @@ class CPU:
 
         for i in range(8):
             print(" %02X" % self.reg[i], end='')
-
+        ###########################
+        #When we have too many variables > 8
+        #We need to use the stack to store this extra information
+        #Stack: Push, Pop, storage
+        #We will use RAM,memory
+        ###########################
         
 
     def run(self):
@@ -109,35 +103,53 @@ class CPU:
         while running:
             #self.trace()
             instruction = self.ram[self.pc]
+            operand_a = self.ram_read(self.pc + 1)
+            operand_b = self.ram_read(self.pc + 2)
 
-            if instruction == self.LDI:
-                #print(instruction)
-                reg_num = self.ram[self.pc + 1]
-                value = self.ram[self.pc + 2]
-                self.reg[reg_num] = value
-
-                #move pc 3 based on the number of arguments(2) that instructions takes
-                #This has 2 bytes
+            if instruction == LDI:
+                self.reg[operand_a] = operand_b
                 self.pc += 3 
-                #print(f'PC = ', self.LDI)
+                
 
-            elif instruction == self.HLT:
+            elif instruction == HLT:
                 running = False
-                #print(instruction)
-                #1 byte
+
                 self.pc += 1
                 
-            elif instruction == self.PRN:
-                reg_num = self.ram[self.pc + 1]
+            elif instruction == PRN:
+                reg_num = operand_a
                 print(self.reg[reg_num])
-                # 1 argument - 2 bytes
+            
                 self.pc += 2
-            elif instruction == self.MUL:
-                print('Multiply')
-                #pass
-                #self.reg[reg_a] *= self.reg[reg_b]
-                self.alu("MUL", self.ram_read(self.pc + 1), self.ram_read(self.pc + 2)) 
+
+            elif instruction == MUL:
+            
+                self.alu("MUL", operand_a, operand_b) 
                 self.pc +=3
+
+            elif instruction == PUSH:
+                #self.trace()
+                #print('Push')
+                value = self.reg[operand_a]
+                #dec the stack pointer by 1
+                self.reg[SP] -= 1
+                reg_k = self.ram[self.pc + 1]
+                reg_value = self.reg[reg_k]
+                #put the value at the stack pointer address
+                latest_stack_address = self.reg[SP]
+                self.ram[latest_stack_address] = reg_value
+                self.ram_write(value,self.reg[SP])
+                
+                self.pc += 2
+
+            elif instruction == POP:
+                # #get the stack pointer
+                value = self.ram_read(self.reg[SP])
+                self.reg[SP] += 1
+                # #get register number to put value in
+                self.reg[operand_a] = value
+                # # increment pc counter
+                self.pc += 2         
 
             else:
                 print(f' Unknown, {instruction}')   
