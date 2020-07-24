@@ -28,6 +28,7 @@ class CPU:
         self.reg = [0] * 8 #stack pointer at 8
         #initial value of where the stack pointer 
         self.reg[SP] = 0xf4
+        self.fl = 0
 
 
         #read the ram
@@ -65,8 +66,14 @@ class CPU:
         #elif op == "SUB": etc
         elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
-        elif op == "DIV":
-            self.reg[reg_a] /= self.reg[reg_b]
+
+        elif op == "CMP":
+            self.reg[reg_a] == self.reg[reg_b]
+            self.fl = 1    
+       
+            
+        
+
 
         else:
             raise Exception("Unsupported ALU operation")
@@ -143,13 +150,51 @@ class CPU:
                 self.pc += 2
 
             elif instruction == POP:
+
                 # #get the stack pointer
                 value = self.ram_read(self.reg[SP])
                 self.reg[SP] += 1
                 # #get register number to put value in
                 self.reg[operand_a] = value
                 # # increment pc counter
-                self.pc += 2         
+                self.pc += 2
+            elif instruction == CALL:
+                #print('CALL')
+                #dec the stack pointer
+                self.reg[SP] -= 1
+                self.ram[self.reg[SP]] = self.pc + 2
+                self.pc = self.reg[operand_a]
+            elif instruction == RET:
+                self.pc = self.ram[self.reg[SP]]
+                self.reg[SP] += 1
+            elif instruction == CMP:
+                #compare operand a and b
+                first_address = self.ram_read(self.pc + 1)
+                second_address = self.ram_read(self.pc + 2)
+                self.alu("CMP", first_address, second_address)
+                #inc pc by 3 - cmp take 2 args = 3bytes
+                self.pc += 3
+
+            elif instruction == JMP:
+                #Jump to the address stored in the given register.
+                reg_address = self.ram_read(self.pc + 1)
+                self.pc = self.reg[reg_address]
+            elif instruction == JEQ:
+                #If `equal` flag is set (true), 
+                # jump to the address stored in the given register.
+                reg_address = self.ram_read(self.pc + 1)
+                if self.fl == 1:
+                    self.pc = self.reg[reg_address]
+                else:
+                    self.pc += 2    
+            elif instruction == JNE:
+                # If `E` flag is clear (false, 0), 
+                # jump to the address stored in the given register.   
+                reg_address = self.ram_read(self.pc + 1)
+                if self.fl == 0:
+                    self.pc = self.reg[reg_address]
+                else:
+                    self.pc += 2    
 
             else:
                 print(f' Unknown, {instruction}')   
